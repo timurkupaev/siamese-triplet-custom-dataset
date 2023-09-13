@@ -1,3 +1,9 @@
+# https://arxiv.org/pdf/1503.03832.pdf
+# https://arxiv.org/pdf/1703.07737.pdf
+# http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
+# https://github.com/ikonushok/siamese-triplet/tree/master
+
+import warnings
 
 import numpy as np
 
@@ -18,7 +24,7 @@ from losses import ContrastiveLoss, TripletLoss, OnlineContrastiveLoss, OnlineTr
 from utils import HardNegativePairSelector  # Strategies for selecting pairs within a minibatch
 from utils import RandomNegativeTripletSelector  # Strategies for selecting triplets within a minibatch
 
-
+warnings.filterwarnings("ignore")
 cuda = torch.cuda.is_available()
 
 # load and Normalize dataset
@@ -27,14 +33,16 @@ train_dataset = MNIST('data/MNIST', train=True, download=False,
                       transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((mean,), (std,))]))
 test_dataset = MNIST('data/MNIST', train=False, download=False,
                      transform=transforms.Compose([transforms.ToTensor(), transforms.Normalize((mean,), (std,))]))
-
+# Print Data
+# print(train_dataset)
+# print(train_dataset[0][0].shape)
 
 # Common setup
 n_classes = 10
 mnist_classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 
-def plot_embeddings(embeddings, targets, xlim=None, ylim=None):
+def plot_embeddings(embeddings, targets, title=None, xlim=None, ylim=None):
     plt.figure(figsize=(10,10))
     for i in range(10):
         inds = np.where(targets==i)[0]
@@ -44,6 +52,7 @@ def plot_embeddings(embeddings, targets, xlim=None, ylim=None):
     if ylim:
         plt.ylim(ylim[0], ylim[1])
     plt.legend(mnist_classes)
+    plt.title(title)
     plt.show()
 
 def extract_embeddings(dataloader, model):
@@ -63,6 +72,8 @@ def extract_embeddings(dataloader, model):
 # Baseline: Classification with softmax
 # We'll train the model for classification and use outputs of penultimate layer as embeddings
 # Set up data loaders
+title = '1. Baseline - classification with softmax'
+print(f'\n{title}:')
 batch_size = 256
 kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
@@ -84,9 +95,9 @@ fit(train_loader, test_loader, model, loss_fn, optimizer, scheduler, n_epochs, c
     metrics=[AccumulatedAccuracyMetric()])
 
 train_embeddings_baseline, train_labels_baseline = extract_embeddings(train_loader, model)
-plot_embeddings(train_embeddings_baseline, train_labels_baseline)
+plot_embeddings(train_embeddings_baseline, train_labels_baseline, f'{title}, train_embeddings_baseline')
 val_embeddings_baseline, val_labels_baseline = extract_embeddings(test_loader, model)
-plot_embeddings(val_embeddings_baseline, val_labels_baseline)
+plot_embeddings(val_embeddings_baseline, val_labels_baseline, f'{title}, val_embeddings_baseline')
 # While the embeddings look separable (which is what we trained them for),
 # they don't have good metric properties. They might not be the best choice as a descriptor for new classes.
 
@@ -95,6 +106,8 @@ plot_embeddings(val_embeddings_baseline, val_labels_baseline)
 # so that the distance between them is minimized if their from the same class or
 # greater than some margin value if they represent different classes. We'll minimize a contrastive loss function
 # Set up data loaders
+title = '2. Siamese network'
+print(f'\n{title}:')
 siamese_train_dataset = SiameseMNIST(train_dataset) # Returns pairs of images and target same/different
 siamese_test_dataset = SiameseMNIST(test_dataset)
 batch_size = 128
@@ -118,9 +131,9 @@ log_interval = 100
 fit(siamese_train_loader, siamese_test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval)
 
 train_embeddings_cl, train_labels_cl = extract_embeddings(train_loader, model)
-plot_embeddings(train_embeddings_cl, train_labels_cl)
+plot_embeddings(train_embeddings_cl, train_labels_cl, f'{title}, train_embeddings_cl')
 val_embeddings_cl, val_labels_cl = extract_embeddings(test_loader, model)
-plot_embeddings(val_embeddings_cl, val_labels_cl)
+plot_embeddings(val_embeddings_cl, val_labels_cl, f'{title}, val_embeddings_cl')
 
 
 # Triplet network
@@ -128,7 +141,8 @@ plot_embeddings(val_embeddings_cl, val_labels_cl)
 # and negative (different class than anchor) examples.
 # The objective is to learn embeddings such that the anchor is closer to the positive example
 # than it is to the negative example by some margin value.
-
+title = '3. Triplet network'
+print(f'\n{title}:')
 # Set up data loaders
 triplet_train_dataset = TripletMNIST(train_dataset) # Returns triplets of images
 triplet_test_dataset = TripletMNIST(test_dataset)
@@ -153,9 +167,9 @@ log_interval = 100
 fit(triplet_train_loader, triplet_test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval)
 
 train_embeddings_tl, train_labels_tl = extract_embeddings(train_loader, model)
-plot_embeddings(train_embeddings_tl, train_labels_tl)
+plot_embeddings(train_embeddings_tl, train_labels_tl, f'{title}, train_embeddings')
 val_embeddings_tl, val_labels_tl = extract_embeddings(test_loader, model)
-plot_embeddings(val_embeddings_tl, val_labels_tl)
+plot_embeddings(val_embeddings_tl, val_labels_tl, f'{title}, val_embeddings')
 
 ## Online pair selection
 ## Steps
@@ -164,7 +178,8 @@ plot_embeddings(val_embeddings_tl, val_labels_tl)
 # 3. Define a PairSelector that takes embeddings and original labels and returns valid pairs within a minibatch
 # 4. Define OnlineContrastiveLoss that will use a PairSelector and compute ContrastiveLoss on such pairs
 # 5. Train the network!
-
+title = '4. Online pair selection - negative mining'
+print(f'\n{title}:')
 # We'll create mini batches by sampling labels that will be present in the mini batch and number of examples from each class
 train_batch_sampler = BalancedBatchSampler(train_dataset.train_labels, n_classes=10, n_samples=25)
 test_batch_sampler = BalancedBatchSampler(test_dataset.test_labels, n_classes=10, n_samples=25)
@@ -189,9 +204,9 @@ log_interval = 50
 fit(online_train_loader, online_test_loader, model, loss_fn, optimizer, scheduler, n_epochs, cuda, log_interval)
 
 train_embeddings_ocl, train_labels_ocl = extract_embeddings(train_loader, model)
-plot_embeddings(train_embeddings_ocl, train_labels_ocl)
+plot_embeddings(train_embeddings_ocl, train_labels_ocl, f'{title}, train_embeddings')
 val_embeddings_ocl, val_labels_ocl = extract_embeddings(test_loader, model)
-plot_embeddings(val_embeddings_ocl, val_labels_ocl)
+plot_embeddings(val_embeddings_ocl, val_labels_ocl, f'{title}, val_embeddings')
 
 
 ## Online triplet selection
@@ -202,7 +217,8 @@ plot_embeddings(val_embeddings_ocl, val_labels_ocl)
 # 4. Define a **TripletSelector** that takes embeddings and original labels and returns valid triplets within a minibatch
 # 5. Define **OnlineTripletLoss** that will use a *TripletSelector* and compute *TripletLoss* on such pairs
 # 6. Train the network!
-
+title = '5. Online triplet selection - negative mining'
+print(f'\n{title}:')
 # We'll create mini batches by sampling labels that will be present in the mini batch and number of examples from each class
 train_batch_sampler = BalancedBatchSampler(train_dataset.train_labels, n_classes=10, n_samples=25)
 test_batch_sampler = BalancedBatchSampler(test_dataset.test_labels, n_classes=10, n_samples=25)
@@ -228,9 +244,9 @@ fit(online_train_loader, online_test_loader, model, loss_fn, optimizer, schedule
     metrics=[AverageNonzeroTripletsMetric()])
 
 train_embeddings_otl, train_labels_otl = extract_embeddings(train_loader, model)
-plot_embeddings(train_embeddings_otl, train_labels_otl)
+plot_embeddings(train_embeddings_otl, train_labels_otl, f'{title}, train_embeddings_otl')
 val_embeddings_otl, val_labels_otl = extract_embeddings(test_loader, model)
-plot_embeddings(val_embeddings_otl, val_labels_otl)
+plot_embeddings(val_embeddings_otl, val_labels_otl, f'{title}, val_embeddings_otl')
 
 
 # display_emb_online, display_emb, display_label_online, display_label = \
@@ -239,10 +255,10 @@ display_emb_online, display_emb, display_label_online, display_label = \
     val_embeddings_otl, val_embeddings_tl, val_labels_otl, val_labels_tl
 x_lim = (np.min(display_emb_online[:,0]), np.max(display_emb_online[:,0]))
 y_lim = (np.min(display_emb_online[:,1]), np.max(display_emb_online[:,1]))
-plot_embeddings(display_emb, display_label, x_lim, y_lim)
-plot_embeddings(display_emb_online, display_label_online, x_lim, y_lim)
+plot_embeddings(display_emb, display_label, f'{title}, display_val_emb_otl', x_lim, y_lim)
+plot_embeddings(display_emb_online, display_label_online, f'{title}, display_online_val_emb_otl', x_lim, y_lim)
 
 x_lim = (np.min(train_embeddings_ocl[:,0]), np.max(train_embeddings_ocl[:,0]))
 y_lim = (np.min(train_embeddings_ocl[:,1]), np.max(train_embeddings_ocl[:,1]))
-plot_embeddings(train_embeddings_cl, train_labels_cl, x_lim, y_lim)
-plot_embeddings(train_embeddings_ocl, train_labels_ocl, x_lim, y_lim)
+plot_embeddings(train_embeddings_cl, train_labels_cl, f'{title}, train_embeddings_cl', x_lim, y_lim)
+plot_embeddings(train_embeddings_ocl, train_labels_ocl, f'{title}, val_embeddings_cl', x_lim, y_lim)

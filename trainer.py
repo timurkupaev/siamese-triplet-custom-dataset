@@ -20,7 +20,7 @@ def fit(train_loader, val_loader, model, loss_fn, optimizer, scheduler, n_epochs
         scheduler.step()
 
         # Train stage
-        train_loss, metrics = train_epoch(train_loader, model, loss_fn, optimizer, scheduler, cuda, log_interval, metrics)
+        train_loss, metrics = train_epoch(train_loader, model, loss_fn, optimizer, cuda, log_interval, metrics)
 
         val_loss, metrics = test_epoch(val_loader, model, loss_fn, cuda, metrics)
         val_loss /= len(val_loader)
@@ -30,7 +30,7 @@ def fit(train_loader, val_loader, model, loss_fn, optimizer, scheduler, n_epochs
                   f"Average Val loss: {round(val_loss, 3)}, {metric.name()}: {metric.value()}")
 
 
-def train_epoch(train_loader, model, loss_fn, optimizer, scheduler, cuda, log_interval, metrics):
+def train_epoch(train_loader, model, loss_fn, optimizer, cuda, log_interval, metrics):
     for metric in metrics:
         metric.reset()
 
@@ -39,6 +39,7 @@ def train_epoch(train_loader, model, loss_fn, optimizer, scheduler, cuda, log_in
     total_loss = 0
 
     for batch_idx, (data, target) in enumerate(train_loader):
+        # print(data.shape)  # torch.Size([256, 1, 28, 28])
         target = target if len(target) > 0 else None
         if not type(data) in (tuple, list):
             data = (data,)
