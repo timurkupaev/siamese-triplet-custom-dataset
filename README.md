@@ -38,7 +38,7 @@ For pytorch 0.3 compatibility checkout tag torch-0.3.1
 
 # Examples - MNIST
 
-We'll train embeddings on MNIST dataset. Experiments were run in [jupyter notebook](Experiments_MNIST.ipynb).
+We'll train embeddings on MNIST dataset. Experiments were run in [jupyter notebook](archive/Experiments_MNIST.ipynb).
 
 We'll go through learning supervised feature embeddings using different loss functions on MNIST dataset. This is just for visualization purposes, thus we'll be using 2-dimensional embeddings which isn't the best choice in practice.
 
