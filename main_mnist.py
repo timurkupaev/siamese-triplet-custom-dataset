@@ -16,7 +16,7 @@ from networks import EmbeddingNet, ClassificationNet, SiameseNet, TripletNet
 from losses import ContrastiveLoss, TripletLoss, OnlineContrastiveLoss, OnlineTripletLoss
 
 from utils import HardNegativePairSelector  # Strategies for selecting pairs within a minibatch
-from utils import RandomNegativeTripletSelector # Strategies for selecting triplets within a minibatch
+from utils import RandomNegativeTripletSelector  # Strategies for selecting triplets within a minibatch
 
 
 cuda = torch.cuda.is_available()
