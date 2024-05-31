@@ -4,15 +4,14 @@
 
 Требования: 
 
-    ```bash
     torch==2.3.0
     torchvision==0.18.0
     matplotlib
-    ```
+
 
 1. Клон репозитория
     ```bash
-    git clone 
+    git clone https://github.com/timurkupaev/siamese-triplet-custom-dataset.git
     cd siamese-triplet
     ```
 
