@@ -1,9 +1,73 @@
 import numpy as np
 from PIL import Image
-
+import torch
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import BatchSampler
 
+
+class CustomDataset(Dataset):
+
+    def __init__(self, data, labels, train=True, train_split=0.7, transform=None):
+        self.data = torch.tensor(data, dtype=torch.float32)
+        self.data = self.reshape(self.data)
+        self.labels = torch.tensor(labels, dtype=torch.long)
+        self.transform = transform
+        self.train = train
+
+        # Разделение данных на обучающую и тестовую выборки
+        total_size = len(self.data)
+        train_size = int(train_split * total_size)
+        indices = np.arange(total_size)
+        np.random.seed(42)
+        np.random.shuffle(indices)
+
+        self.train_indices = indices[:train_size]
+        self.test_indices = indices[train_size:]
+
+        self.train_data = self.data[self.train_indices]
+        self.train_labels = self.labels[self.train_indices]
+        self.test_data = self.data[self.test_indices]
+        self.test_labels = self.labels[self.test_indices]
+        self.classes = set(self.train_labels.cpu().numpy())
+        self.class_to_idx = {label: np.where(self.train_labels.cpu().numpy() == label)[0]
+                                     for label in self.classes}
+
+    def reshape(self, data):
+        arrays = []
+        for idx in range(len(data)):
+            # создаем массив размером (60, 60)
+            array = torch.zeros(60, 60)
+            # получаем массив размером (60, 5)
+            z = data[idx]
+            # вставляем в него массив размером (60, 5)
+            array[:z.shape[0], 27:27+z.shape[1]] = z
+            # добавляем одну размерность массиву и сохраняем в список
+            arrays.append(array.unsqueeze(0))
+        # объединяем все массивы из списка в один массив
+        return torch.cat(arrays)
+
+    def __len__(self):
+        return len(self.train_indices) if self.train else len(self.test_indices)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        if self.train:
+            data_idx = self.train_indices[idx]
+        else:
+            data_idx = self.test_indices[idx]
+
+        # преобразуем массив в изображение
+        image = Image.fromarray(self.data[data_idx].numpy(), mode='L')
+
+        # нормализуем изображение
+        if self.transform:
+            image = self.transform(image)
+
+        sample = (image, int(self.labels[data_idx]), )
+
+        return sample
 
 class SiameseMNIST(Dataset):
     """
