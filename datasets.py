@@ -59,7 +59,7 @@ class CustomDataset(Dataset):
             data_idx = self.test_indices[idx]
 
         # преобразуем массив в изображение
-        image = Image.fromarray(self.data[data_idx].numpy(), mode='L')
+        image = Image.fromarray(self.data[data_idx].squeeze(0).numpy(), mode='L')
 
         # нормализуем изображение
         if self.transform:
