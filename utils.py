@@ -172,7 +172,7 @@ class FunctionNegativeTripletSelector(TripletSelector):
                     triplets.append([anchor_positive[0], anchor_positive[1], hard_negative])
 
         if len(triplets) == 0:
-            triplets.append([anchor_positive[0], anchor_positive[1], negative_indices[0]])
+            return torch.LongTensor([])
 
         triplets = np.array(triplets)
 
